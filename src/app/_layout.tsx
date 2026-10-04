@@ -53,6 +53,18 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
           <Stack.Screen name="add" options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="setup-recognition"
+            options={{
+              presentation: 'modal',
+              headerShown: true,
+              title: 'Foto-Erkennung einrichten',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.text,
+              headerTitleStyle: { fontFamily: fonts.bold, fontSize: 18 },
+              headerShadowVisible: false,
+            }}
+          />
         </Stack>
       </SQLiteProvider>
     </ThemeProvider>

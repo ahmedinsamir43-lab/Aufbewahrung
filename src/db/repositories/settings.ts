@@ -2,6 +2,8 @@ import type { Db } from '../database';
 
 export const SETTING_KEYS = {
   onboardingDraft: 'onboarding_draft',
+  recognition: 'recognition_config',
+  recognitionDraftToken: 'recognition_draft_token',
 } as const;
 
 export async function getSetting<T>(db: Db, key: string): Promise<T | null> {

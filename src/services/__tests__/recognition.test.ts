@@ -5,7 +5,14 @@ import { getEntriesForDate } from '@/db/repositories/log';
 import { createMigratedDb } from '@/db/testing/node-sqlite';
 
 import { logRecognizedItems } from '../log-service';
-import { readConfig, recognizeMeal } from '../recognition';
+import {
+  loadRecognitionConfig,
+  normalizeWorkerUrl,
+  readConfig,
+  recognizeMeal,
+  saveRecognitionConfig,
+  testRecognitionConnection,
+} from '../recognition';
 
 const config = { url: 'https://proxy.example', token: 't0k3n' };
 const item = {
@@ -59,6 +66,61 @@ describe('recognizeMeal', () => {
       throw new TypeError('Network request failed');
     };
     await expect(recognizeMeal('x', config, offline)).resolves.toEqual({ kind: 'offline' });
+  });
+});
+
+describe('normalizeWorkerUrl', () => {
+  it.each([
+    ['naehrwert-recognition.alex.workers.dev', 'https://naehrwert-recognition.alex.workers.dev'],
+    ['https://naehrwert-recognition.alex.workers.dev/', 'https://naehrwert-recognition.alex.workers.dev'],
+    [' https://x.workers.dev/recognize ', 'https://x.workers.dev'],
+    ['HTTPS://X.workers.dev', 'https://x.workers.dev'],
+  ])('%s → %s', (input, expected) => {
+    expect(normalizeWorkerUrl(input)).toBe(expected);
+  });
+
+  it('lehnt Unbrauchbares ab', () => {
+    expect(normalizeWorkerUrl('')).toBeNull();
+    expect(normalizeWorkerUrl('localhost')).toBeNull();
+    expect(normalizeWorkerUrl('nicht eine adresse')).toBeNull();
+  });
+});
+
+describe('Einrichtung in der App', () => {
+  it('speichert die Konfiguration lokal und lädt sie wieder', async () => {
+    const db = await createMigratedDb();
+    await expect(loadRecognitionConfig(db)).resolves.toBeNull();
+    await saveRecognitionConfig(db, config);
+    await expect(loadRecognitionConfig(db)).resolves.toEqual(config);
+  });
+});
+
+describe('testRecognitionConnection', () => {
+  it.each([
+    [200, { items: [] }, 'ok'],
+    [200, 'Hello World!', 'wrong_url'], // Cloudflare-Vorlage ohne eingefügten Code
+    [429, {}, 'quota'],
+    [401, { error: 'unauthorized' }, 'wrong_token'],
+    [500, { error: 'not_configured' }, 'missing_secrets'],
+    [502, { error: 'upstream' }, 'gemini_rejected'],
+    [404, {}, 'wrong_url'],
+  ] as const)('HTTP %i → %s', async (status, body, expected) => {
+    await expect(testRecognitionConnection(config, fake(status, body))).resolves.toBe(expected);
+  });
+
+  it('meldet nicht erreichbare Adressen', async () => {
+    const offline = async () => {
+      throw new TypeError('Network request failed');
+    };
+    await expect(testRecognitionConnection(config, offline)).resolves.toBe('unreachable');
+  });
+
+  it('sendet ein Test-PNG mit Token an /recognize', async () => {
+    const f = fake(200, { items: [] });
+    await testRecognitionConnection(config, f);
+    expect(f.calls[0].url).toBe('https://proxy.example/recognize');
+    expect(f.calls[0].init.headers.authorization).toBe('Bearer t0k3n');
+    expect(JSON.parse(f.calls[0].init.body).mimeType).toBe('image/png');
   });
 });
 

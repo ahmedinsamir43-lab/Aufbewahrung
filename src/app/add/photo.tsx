@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,7 +22,7 @@ import { itemPer100g } from '@/domain/recognition';
 import type { Meal } from '@/domain/types';
 import { prepareImage } from '@/services/image-prep';
 import { logRecognizedItems } from '@/services/log-service';
-import { readConfig, recognizeMeal } from '@/services/recognition';
+import { loadRecognitionConfig, recognizeMeal, type RecognitionConfig } from '@/services/recognition';
 import { useAddParams } from '@/state/use-add-params';
 import { radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
@@ -43,7 +43,15 @@ export default function PhotoScreen() {
   const [meal, setMeal] = useState<Meal>(params.meal);
   const [avoidTerms, setAvoidTerms] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const configured = readConfig() != null;
+  // undefined = wird geladen, null = nicht eingerichtet
+  const [config, setConfig] = useState<RecognitionConfig | null | undefined>(undefined);
+
+  // Bei jedem Fokus neu laden – z. B. nach Rückkehr aus der Einrichtung.
+  useFocusEffect(
+    useCallback(() => {
+      loadRecognitionConfig(db).then(setConfig);
+    }, [db]),
+  );
 
   useEffect(() => {
     getProfile(db).then((p) => setAvoidTerms(p?.avoidFoods ?? []));
@@ -73,7 +81,7 @@ export default function PhotoScreen() {
       setPhase({ kind: 'failed', uri: asset.uri, title: 'Foto nicht lesbar', text: 'Das Foto konnte nicht verarbeitet werden. Bitte versuche ein anderes.' });
       return;
     }
-    const r = await recognizeMeal(base64);
+    const r = await recognizeMeal(base64, config ?? null);
     if (r.kind === 'ok') {
       if (r.items.length === 0) {
         haptics.error();
@@ -129,14 +137,16 @@ export default function PhotoScreen() {
 
   const searchInstead = () => router.replace({ pathname: '/add/search', params: { date: params.date, meal } });
 
-  if (!configured) {
+  if (config === undefined) return <View style={[styles.screen, { backgroundColor: colors.background }]} />;
+  if (config === null) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <EmptyState
           icon="photo_camera"
           title="Foto-Erkennung einrichten"
-          text="Für die kostenlose Foto-Erkennung wird einmalig ein eigener Server-Zugang (Cloudflare Worker mit Gemini-Schlüssel) benötigt. Die Anleitung steht in docs/FOTO-ERKENNUNG.md.">
-          <Button title="Stattdessen suchen" icon="search" iconPosition="left" onPress={searchInstead} />
+          text="Für die kostenlose Foto-Erkennung brauchst du einmalig einen Gemini-Schlüssel und einen kostenlosen Cloudflare Worker. Die Schritt-für-Schritt-Anleitung steht in docs/FOTO-ERKENNUNG.md.">
+          <Button title="Jetzt einrichten" icon="settings" iconPosition="left" onPress={() => router.push('/setup-recognition')} />
+          <Button title="Stattdessen suchen" variant="ghost" icon="search" iconPosition="left" onPress={searchInstead} />
         </EmptyState>
       </View>
     );

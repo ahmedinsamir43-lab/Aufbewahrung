@@ -157,6 +157,12 @@ Zentrale Modellierungsentscheidungen:
 - *Konten:* Google- und Cloudflare-Konto sind nötig.
 Einrichtung: [FOTO-ERKENNUNG.md](FOTO-ERKENNUNG.md).
 
+**Einrichtung ohne Programmierkenntnisse.**
+- *Worker:* Er wird als fertig gebündelte Einzeldatei (`backend/recognition-proxy/dist/worker.js`, erzeugt mit `npm run bundle`) im Cloudflare-Browser-Editor eingefügt. Ein Test vergleicht einen eingebetteten Prüfwert der Quelldateien und verhindert so eine veraltete Datei.
+- *App-Token:* Die App erzeugt es selbst (256 Bit, `expo-crypto`) und bietet es zum Kopieren oder Teilen an.
+- *Speicherung:* Worker-Adresse und Token liegen lokal in `app_setting`. Es ist kein Neubau der App nötig, und das Token steckt nicht in der APK.
+- *Verbindungstest:* Ein Testbild prüft die gesamte Kette und unterscheidet: nicht erreichbar, falscher Dienst (u. a. die Cloudflare-Vorlage „Hello World“), fehlende Secrets, falsches Token, abgelehnter Gemini-Schlüssel und erschöpftes Kontingent.
+
 **Ablauf.**
 1. Foto über Kamera oder Galerie (expo-image-picker).
 2. Verkleinerung auf höchstens 1.024 px und JPEG-Qualität 0,7 (expo-image-manipulator); typischerweise 0,1–0,5 MB.
