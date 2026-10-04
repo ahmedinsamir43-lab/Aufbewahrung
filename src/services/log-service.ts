@@ -2,6 +2,7 @@ import { inTransaction, type Db } from '@/db/database';
 import { getFood, touchFood } from '@/db/repositories/food';
 import { addLogEntry, updateLogEntry } from '@/db/repositories/log';
 import { scaleNutrients } from '@/domain/portion';
+import { isLowConfidence, itemPer100g, type RecognitionItem } from '@/domain/recognition';
 import type { Meal } from '@/domain/types';
 
 /**
@@ -58,4 +59,37 @@ export async function changeEntryPortion(
     proteinG: entry.proteinG * f,
     fatG: entry.fatG * f,
   });
+}
+
+/**
+ * Speichert bestätigte Vorschläge der Foto-Erkennung. Nährwerte werden aus der Schätzung
+ * auf die (ggf. geänderte) Menge umgerechnet; niedrige Konfidenz → als Schätzung markiert.
+ */
+export async function logRecognizedItems(
+  db: Db,
+  items: { item: RecognitionItem; name: string; amountG: number }[],
+  target: { date: string; meal: Meal },
+  now: Date = new Date(),
+): Promise<number> {
+  const timestamp = now.toISOString();
+  await inTransaction(db, async () => {
+    for (const { item, name, amountG } of items) {
+      await addLogEntry(
+        db,
+        {
+          date: target.date,
+          meal: target.meal,
+          foodId: null,
+          name: name.trim() || item.name,
+          amountG,
+          ...scaleNutrients(itemPer100g(item), amountG),
+          source: 'photo',
+          isEstimate: isLowConfidence(item),
+          confidence: item.konfidenz,
+        },
+        timestamp,
+      );
+    }
+  });
+  return items.length;
 }

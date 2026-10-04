@@ -9,7 +9,7 @@
 | Persistenz | expo-sqlite, Migrationen über `PRAGMA user_version` | Relationale Abfragen für Tages- und Verlaufsaggregation; Schema in einer Datei, testbar mit `node:sqlite`. |
 | Domänenlogik | Reines TypeScript in `src/domain/` | Formeln (BMR, TDEE, Makros, Portionsumrechnung) ohne UI-Abhängigkeit → schnelle Unit-Tests mit Jest. |
 | Barcode | expo-camera (`CameraView`, `barcodeScannerSettings`) | Integrierter Scanner, keine Zusatzbibliothek. |
-| Foto-Erkennung | Claude Vision über Backend-Proxy (`backend/`) | API-Key verbleibt serverseitig. |
+| Foto-Erkennung | Google Gemini (kostenlose Stufe) über Cloudflare-Worker-Proxy (`backend/recognition-proxy`) | Keine laufenden Kosten; API-Key verbleibt serverseitig; Proxy anbieterneutral (Claude später ohne App-Änderung möglich). |
 | Ringe | react-native-svg + react-native-reanimated | Animierte Kreisbögen über `strokeDashoffset`. |
 | Netzwerkstatus | @react-native-community/netinfo | Erkennung „offline" → Scan-Warteschlange. |
 | Build | Development Build (`npx expo run:android`) bzw. EAS Build (APK) | Expo Go genügt für Phase 1, Health Connect (Phase 2) erfordert aber ohnehin einen Development Build. |
@@ -57,7 +57,7 @@ src/
   components/                   UI-Bausteine: Card, Button, MacroRing, ProgressBar …
   theme/                        Design-Tokens, Hell-/Dunkelmodus (vorhanden)
 backend/
-  recognition-proxy/            Proxy für Claude Vision (Schritt 5)
+  recognition-proxy/            Cloudflare Worker: Foto → Gemini → bereinigtes JSON (Schritt 5)
 docs/                           Architektur, Installationsanleitung
 ```
 
@@ -116,7 +116,7 @@ Zentrale Modellierungsentscheidungen:
 | 2 | Onboarding, Berechnung, Unit-Tests | erledigt |
 | 3 | Dashboard, Tagesprotokoll, „+"-Button, Portionsauswahl, lokale Suche, manuelle Eingabe | erledigt |
 | 4 | Barcode-Scanner, Open Food Facts (Barcode und Textsuche), Offline-Warteschlange | erledigt |
-| 5 | Foto-Erkennung über Cloudflare-Worker-Proxy | offen |
+| 5 | Foto-Erkennung über Cloudflare-Worker-Proxy (Gemini, kostenlos) | erledigt |
 | 6 | Verlauf, Einstellungen, **Gewichtsverlauf** mit Diagramm zum Zielgewicht, Feinschliff | offen |
 | 7 | **Samsung Health über Android Health Connect**: Schritte, Trainings und Aktivitätskalorien lesen, Gewicht synchronisieren | offen |
 | 8 | Installationsanleitung (USB-Debugging / APK über EAS Build) | offen |
@@ -149,9 +149,60 @@ Zentrale Modellierungsentscheidungen:
 
 **Datenqualität.** Open Food Facts wird von der Community gepflegt (Lizenz ODbL); die App weist darauf hin, die Werte mit der Verpackung abzugleichen. Selbst angelegte Produkte haben Vorrang und werden durch Online-Daten nie überschrieben.
 
-## 7. Qualitätssicherung
+## 7. Foto-Erkennung (Schritt 5)
 
-- `npm test` – Jest: Formeln, Interviewlogik, Portionen, Ringzustand, Abgleich gemiedener Lebensmittel, Barcode-Prüfziffern, Open-Food-Facts-Mapping, Offline-Warteschlange, Formatierung, Migrationen und Repositories (gegen echtes SQLite)
+**Entscheidung.** Statt der kostenpflichtigen Claude API wird die kostenlose Stufe der Google Gemini API genutzt, auf ausdrücklichen Wunsch: keine laufenden Kosten. Folgen:
+- *Tageskontingent:* Ist es erreicht, meldet die App „Tageslimit erreicht“.
+- *Datenschutz:* Google darf Eingaben der kostenlosen Stufe zur Produktverbesserung verwenden; die App weist vor der Aufnahme darauf hin.
+- *Konten:* Google- und Cloudflare-Konto sind nötig.
+Einrichtung: [FOTO-ERKENNUNG.md](FOTO-ERKENNUNG.md).
+
+**Ablauf.**
+1. Foto über Kamera oder Galerie (expo-image-picker).
+2. Verkleinerung auf höchstens 1.024 px und JPEG-Qualität 0,7 (expo-image-manipulator); typischerweise 0,1–0,5 MB.
+3. `POST /recognize` an den Worker mit Bearer-App-Token.
+4. Worker ruft Gemini mit deutschem Prompt und `responseSchema` auf (strukturierte JSON-Ausgabe).
+5. Bereinigung (`src/domain/recognition.ts`), zuerst im Worker, dann erneut in der App.
+6. Anzeige als bearbeitbare Vorschläge.
+
+**Bereinigung der Modellantwort.** Verworfen werden Einträge
+- ohne Name, Menge oder Nährwerte,
+- mit negativen Werten,
+- mit einer Energiedichte über 9,5 kcal/g,
+- mit mehr Makronährstoffen als Gewicht.
+
+Konfidenzangaben in Prozent werden auf 0–1 normiert, fehlende Konfidenz gilt als 0. Höchstens 10 Einträge werden übernommen.
+
+**Vorschläge prüfen.** Für jeden Eintrag lassen sich Übernahme (an/aus), Bezeichnung und Menge ändern; die Nährwerte werden proportional zur Schätzung umgerechnet. Die Konfidenz erscheint als Stufe:
+- *Sicher:* ab 0,8,
+- *Wahrscheinlich:* ab 0,6,
+- *Schätzung · unsicher:* darunter, mit hervorgehobenem Rahmen.
+
+Unsichere Einträge werden als `is_estimate = 1` gespeichert und im Protokoll als „Schätzung“ gekennzeichnet. Gemiedene Lebensmittel werden markiert. Gespeichert wird erst nach Bestätigung (`source = 'photo'`, Konfidenz im Eintrag).
+
+**Fehlerfälle.**
+- Nicht eingerichtet,
+- offline,
+- Kontingent erschöpft (HTTP 429),
+- Token ungültig (401),
+- Modell- oder Serverfehler (502),
+- kein Essen erkannt (leere Liste).
+
+Jeder Fall erhält eine verständliche Meldung und als Ausweg die Suche.
+
+**Worker-Absicherung.**
+- Token-Vergleich in konstanter Zeit,
+- Größenlimit (413),
+- Formatprüfung von Base64 und MIME-Typ,
+- keine Bilddaten oder Schlüssel im Log.
+
+Die Logik ist mit Jest getestet und lief zusätzlich lokal in der Cloudflare-Laufzeit (`workerd`).
+
+**Einordnung.** Die Genauigkeit KI-basierter Portionsschätzung aus Einzelfotos ist begrenzt. Die Literatur berichtet für Volumen- und Energieschätzung aus Bildern erhebliche Fehler. **[Quelle zwingend erforderlich, z. B. Übersichtsarbeiten zu bildbasierter Ernährungserfassung]** Daher werden die Werte als bearbeitbarer Vorschlag behandelt, nie als Messung.
+
+## 8. Qualitätssicherung
+
+- `npm test` – Jest: Formeln, Interviewlogik, Portionen, Ringzustand, Abgleich gemiedener Lebensmittel, Barcode-Prüfziffern, Open-Food-Facts-Mapping, Offline-Warteschlange, Foto-Erkennung (Bereinigung, Proxy, Speicherung), Formatierung, Migrationen und Repositories (gegen echtes SQLite)
 - `npm run typecheck` – TypeScript strict
 - `npm run lint` – ESLint (expo-Konfiguration, inkl. React-Compiler-Regeln)
 - Web-Vorschau (`npx expo start --web`) für schnelle visuelle Kontrollen; `metro.config.js` aktiviert dafür WebAssembly für expo-sqlite

@@ -1,0 +1,11 @@
+name = "naehrwert-recognition"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Aktuell verfügbare Modelle der kostenlosen Stufe: https://ai.google.dev/gemini-api/docs/pricing
+GEMINI_MODEL = "gemini-2.5-flash"
+
+# Secrets (NICHT hier eintragen, sondern per Befehl setzen):
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put APP_TOKEN

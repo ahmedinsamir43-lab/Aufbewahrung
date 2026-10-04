@@ -1,0 +1,13 @@
+{
+  "name": "naehrwert-recognition-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cloudflare Worker: Foto-Erkennung von Mahlzeiten über die Gemini API",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.147.0"
+  }
+}
