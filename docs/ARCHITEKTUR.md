@@ -115,17 +115,43 @@ Zentrale Modellierungsentscheidungen:
 | 1 | Projekt, Struktur, Datenmodell | erledigt |
 | 2 | Onboarding, Berechnung, Unit-Tests | erledigt |
 | 3 | Dashboard, Tagesprotokoll, „+"-Button, Portionsauswahl, lokale Suche, manuelle Eingabe | erledigt |
-| 4 | Barcode-Scanner, Open Food Facts (Barcode und Textsuche), Offline-Warteschlange | offen |
+| 4 | Barcode-Scanner, Open Food Facts (Barcode und Textsuche), Offline-Warteschlange | erledigt |
 | 5 | Foto-Erkennung über Cloudflare-Worker-Proxy | offen |
 | 6 | Verlauf, Einstellungen, **Gewichtsverlauf** mit Diagramm zum Zielgewicht, Feinschliff | offen |
 | 7 | **Samsung Health über Android Health Connect**: Schritte, Trainings und Aktivitätskalorien lesen, Gewicht synchronisieren | offen |
 | 8 | Installationsanleitung (USB-Debugging / APK über EAS Build) | offen |
 
-**Anmerkung zu Schritt 7.** Samsung Health stellt Daten auf Android über Health Connect bereit; eine direkte Samsung-Schnittstelle ist für Drittanbieter-Apps nicht vorgesehen. Health Connect ist ein natives Modul und erfordert daher einen Development Build bzw. eine APK (nicht Expo Go). Offen und vor Umsetzung zu entscheiden: ob verbrannte Aktivitätskalorien das Tagesziel erhöhen sollen. Da der Aktivitätsfaktor sportliche Aktivität bereits enthält, droht sonst eine Doppelzählung.
+**Anmerkung zu Schritt 7.** Samsung Health stellt Daten auf Android über Health Connect bereit; eine direkte Samsung-Schnittstelle ist für Drittanbieter-Apps nicht vorgesehen. Health Connect ist ein natives Modul und erfordert daher einen Development Build bzw. eine APK (nicht Expo Go). **Entscheidung:** Aktivitätskalorien werden nur angezeigt und erhöhen das Tagesziel nicht, da der Aktivitätsfaktor sportliche Aktivität bereits enthält (Vermeidung einer Doppelzählung).
 
-## 6. Qualitätssicherung
+## 6. Barcode und Open Food Facts (Schritt 4)
 
-- `npm test` – Jest: Formeln, Interviewlogik, Portionen, Ringzustand, Abgleich gemiedener Lebensmittel, Formatierung, Migrationen und Repositories (gegen echtes SQLite)
+**Ablauf eines Scans.**
+1. Prüfung der GS1-Prüfziffer; Fehllesungen werden verworfen, der Scanner läuft weiter.
+2. Normalisierung: UPC-A → EAN-13 (führende 0), UPC-E → UPC-A → EAN-13.
+3. Abfrage zuerst im lokalen Katalog. Das funktioniert offline und erkennt auch selbst angelegte Produkte.
+4. Danach Abfrage über `GET /api/v2/product/{barcode}.json` mit Feldauswahl. Treffer werden lokal gespeichert.
+
+**Ergebnisfälle.**
+- *Gefunden:* weiter zur Portionsauswahl, mit der Packungsportion als Vorschlag.
+- *Unvollständig oder unplausibel:* manuelle Ergänzung, vorausgefüllt mit Name und Marke.
+- *Nicht gefunden:* manuelle Anlage mit Barcode; beim nächsten Scan wird das Produkt sofort erkannt.
+- *Offline* (Verbindungsfehler, Zeitüberschreitung nach 8 s, HTTP 429 oder 5xx): Eintrag in `pending_scan`.
+
+**Offline-Warteschlange.** Beim Öffnen des Dashboards und bei jedem Verbindungswechsel (NetInfo) werden wartende Scans abgerufen. Gefundene Produkte erscheinen als „Gespeicherte Scans“ und werden erst nach Wahl der Portion protokolliert, nie automatisch. Der erste Netzwerkfehler bricht die Abarbeitung ab.
+
+**Mapping.**
+- Name: deutsch bevorzugt; Marke: erste genannte.
+- Energie: aus kcal, sonst aus kJ (÷ 4,184), sonst nach Atwater.
+- Plausibilitätsgrenzen wie bei der manuellen Eingabe.
+- Allergen- und Spuren-Tags werden ins Deutsche übersetzt und an die Zutaten angehängt, damit der Abgleich mit gemiedenen Lebensmitteln greift (z. B. `en:peanuts` → „Erdnüsse“).
+
+**Textsuche.** Über `de.openfoodfacts.org/cgi/search.pl`, nur auf ausdrückliche Nutzeraktion, weil Open Food Facts 10 Suchanfragen pro Minute erlaubt. Angezeigt werden nur Produkte mit vollständigen Nährwerten. Erst ein ausgewählter Treffer wird gespeichert.
+
+**Datenqualität.** Open Food Facts wird von der Community gepflegt (Lizenz ODbL); die App weist darauf hin, die Werte mit der Verpackung abzugleichen. Selbst angelegte Produkte haben Vorrang und werden durch Online-Daten nie überschrieben.
+
+## 7. Qualitätssicherung
+
+- `npm test` – Jest: Formeln, Interviewlogik, Portionen, Ringzustand, Abgleich gemiedener Lebensmittel, Barcode-Prüfziffern, Open-Food-Facts-Mapping, Offline-Warteschlange, Formatierung, Migrationen und Repositories (gegen echtes SQLite)
 - `npm run typecheck` – TypeScript strict
 - `npm run lint` – ESLint (expo-Konfiguration, inkl. React-Compiler-Regeln)
 - Web-Vorschau (`npx expo start --web`) für schnelle visuelle Kontrollen; `metro.config.js` aktiviert dafür WebAssembly für expo-sqlite

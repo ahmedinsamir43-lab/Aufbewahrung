@@ -15,6 +15,7 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { TextField } from '@/components/ui/text-field';
 import { getFood, setFavorite } from '@/db/repositories/food';
 import { deleteLogEntry, getLogEntry } from '@/db/repositories/log';
+import { deleteScan } from '@/db/repositories/pending-scan';
 import { getPlanForDate } from '@/db/repositories/plan';
 import { getProfile } from '@/db/repositories/profile';
 import { findAvoidMatches } from '@/domain/avoid-match';
@@ -148,6 +149,7 @@ export default function PortionScreen() {
         await changeEntryPortion(db, subject.entry, amount, meal);
       } else if (subject.foodId != null) {
         await logFood(db, { foodId: subject.foodId, amountG: amount, meal, date: params.date });
+        if (params.scanId != null) await deleteScan(db, params.scanId);
       }
       haptics.success();
       router.dismissTo('/');

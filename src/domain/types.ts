@@ -129,5 +129,8 @@ export interface PendingScan {
   status: PendingScanStatus;
   attempts: number;
   lastError: string | null;
+  /** Nach erfolgreichem Abruf: Lebensmittel im lokalen Katalog. */
+  foodId: number | null;
+  foodName: string | null;
   createdAt: string;
 }

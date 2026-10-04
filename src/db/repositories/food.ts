@@ -115,3 +115,39 @@ export async function setFavorite(db: Db, id: number, favorite: boolean, now: st
 export async function touchFood(db: Db, id: number, now: string): Promise<void> {
   await db.runAsync('UPDATE food SET last_used_at = ? WHERE id = ?', now, id);
 }
+
+export async function getFoodByBarcode(db: Db, barcode: string): Promise<Food | null> {
+  const row = await db.getFirstAsync<FoodRow>('SELECT * FROM food WHERE barcode = ?', barcode);
+  return row ? toFood(row) : null;
+}
+
+/**
+ * Übernimmt ein Produkt aus Open Food Facts in den lokalen Katalog. Existiert der Barcode
+ * bereits, werden Daten aus Open Food Facts aktualisiert; selbst angelegte Lebensmittel
+ * (Quelle `manual`) bleiben unverändert, weil die eigene Angabe Vorrang hat.
+ */
+export async function upsertOffFood(
+  db: Db,
+  p: { barcode: string; name: string; brand: string | null; per100g: Per100g; defaultPortionG: number | null; ingredientsText: string | null },
+  now: string,
+): Promise<number> {
+  const existing = await getFoodByBarcode(db, p.barcode);
+  if (!existing) return insertFood(db, { source: 'openfoodfacts', ...p }, now);
+  if (existing.source === 'openfoodfacts') {
+    await db.runAsync(
+      `UPDATE food SET name = ?, brand = ?, kcal_100g = ?, carbs_100g = ?, protein_100g = ?, fat_100g = ?,
+         default_portion_g = ?, ingredients_text = ?, updated_at = ? WHERE id = ?`,
+      p.name,
+      p.brand,
+      p.per100g.kcal,
+      p.per100g.carbsG,
+      p.per100g.proteinG,
+      p.per100g.fatG,
+      p.defaultPortionG,
+      p.ingredientsText,
+      now,
+      existing.id,
+    );
+  }
+  return existing.id;
+}

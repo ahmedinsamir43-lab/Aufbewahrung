@@ -101,6 +101,12 @@ export const MIGRATIONS: readonly string[] = [
     value  TEXT NOT NULL
   );
   `,
+
+  // v2 – Offline-Scans: Verweis auf das abgerufene Lebensmittel
+  `
+  ALTER TABLE pending_scan ADD COLUMN food_id INTEGER REFERENCES food (id) ON DELETE SET NULL;
+  CREATE UNIQUE INDEX idx_pending_barcode_open ON pending_scan (barcode) WHERE status = 'pending';
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

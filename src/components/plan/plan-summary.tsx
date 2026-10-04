@@ -191,7 +191,7 @@ export function PlanSummary({ plan, profile }: { plan: PlanResult; profile: Omit
       {profile.healthNote ? (
         <Animated.View entering={enter(5)} style={styles.cardGap}>
           <Notice tone="danger" title="Bitte ärztlich abklären">
-            {`Du hast eine gesundheitliche Notiz angegeben: „${profile.healthNote}". Bitte besprich deinen Plan mit einer Ärztin oder einem Arzt, bevor du ihn umsetzt.`}
+            {`Du hast eine gesundheitliche Notiz angegeben: „${profile.healthNote}“. Bitte besprich deinen Plan mit einer Ärztin oder einem Arzt, bevor du ihn umsetzt.`}
           </Notice>
         </Animated.View>
       ) : null}

@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
@@ -8,9 +8,11 @@ import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { haptics } from '@/components/ui/haptics';
+import { Icon } from '@/components/ui/icon';
 import { LabeledField } from '@/components/ui/labeled-field';
 import { Notice } from '@/components/ui/notice';
-import { insertFood } from '@/db/repositories/food';
+import { getFoodByBarcode, insertFood } from '@/db/repositories/food';
+import { deleteScan } from '@/db/repositories/pending-scan';
 import { EMPTY_FOOD_DRAFT, validateFood, type FoodDraft, type FoodField } from '@/domain/food-validation';
 import { useAddParams } from '@/state/use-add-params';
 import { spacing } from '@/theme/tokens';
@@ -21,8 +23,8 @@ export default function ManualFoodScreen() {
   const db = useSQLiteContext();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { date, meal, query } = useAddParams();
-  const [draft, setDraft] = useState<FoodDraft>({ ...EMPTY_FOOD_DRAFT, name: query });
+  const { date, meal, query, brand, barcode, scanId } = useAddParams();
+  const [draft, setDraft] = useState<FoodDraft>({ ...EMPTY_FOOD_DRAFT, name: query, brand });
   const [errors, setErrors] = useState<Partial<Record<FoodField, string>>>({});
   const [warning, setWarning] = useState<string | null>(null);
   const [acceptedWarning, setAcceptedWarning] = useState(false);
@@ -51,7 +53,10 @@ export default function ManualFoodScreen() {
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      const id = await insertFood(db, { source: 'manual', ...result.food }, now);
+      // Barcode bereits lokal vorhanden (z. B. parallel angelegt) → vorhandenes Lebensmittel verwenden.
+      const existing = barcode ? await getFoodByBarcode(db, barcode) : null;
+      const id = existing?.id ?? (await insertFood(db, { source: 'manual', barcode, ...result.food }, now));
+      if (scanId != null) await deleteScan(db, scanId);
       router.replace({ pathname: '/add/portion', params: { foodId: String(id), date, meal } });
     } catch {
       setSaving(false);
@@ -63,7 +68,16 @@ export default function ManualFoodScreen() {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={[styles.screen, { backgroundColor: colors.background }]}>
+      {barcode ? <Stack.Screen options={{ title: 'Produkt anlegen' }} /> : null}
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {barcode ? (
+          <View style={[styles.barcode, { backgroundColor: colors.accentSoft }]}>
+            <Icon name="barcode" size={20} color={colors.accent} />
+            <AppText variant="caption" color="accent" style={styles.flex}>
+              Barcode {barcode} – wird lokal gespeichert und beim nächsten Scan sofort erkannt.
+            </AppText>
+          </View>
+        ) : null}
         <Card style={styles.card}>
           <LabeledField label="Name" value={draft.name} onChangeText={set('name')} error={errors.name} autoFocus={!query} placeholder="z. B. Skyr Natur" maxLength={80} />
           <LabeledField label="Marke (optional)" value={draft.brand} onChangeText={set('brand')} placeholder="z. B. Arla" maxLength={60} />
@@ -116,6 +130,8 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.md },
   card: { gap: spacing.md },
   grid: { flexDirection: 'row', gap: spacing.md },
+  flex: { flex: 1 },
+  barcode: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 16 },
   cell: { flex: 1 },
   footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
 });

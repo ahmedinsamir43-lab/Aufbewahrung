@@ -17,7 +17,7 @@ export default function AddLayout() {
       <Stack.Screen name="search" options={{ title: 'Lebensmittel suchen' }} />
       <Stack.Screen name="manual" options={{ title: 'Neues Lebensmittel' }} />
       <Stack.Screen name="portion" options={{ title: 'Portion' }} />
-      <Stack.Screen name="scan" options={{ title: 'Barcode scannen' }} />
+      <Stack.Screen name="scan" options={{ title: 'Barcode scannen', headerShown: false }} />
       <Stack.Screen name="photo" options={{ title: 'Foto-Erkennung' }} />
     </Stack>
   );

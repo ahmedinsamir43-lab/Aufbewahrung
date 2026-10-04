@@ -8,6 +8,7 @@ import { AddFab, type AddMethod } from '@/components/dashboard/add-fab';
 import { CalorieCard } from '@/components/dashboard/calorie-card';
 import { DaySwitcher } from '@/components/dashboard/day-switcher';
 import { MealSection } from '@/components/dashboard/meal-section';
+import { PendingScansCard } from '@/components/dashboard/pending-scans-card';
 import { MacroRing } from '@/components/macro-ring';
 import { AppText } from '@/components/ui/app-text';
 import { Card } from '@/components/ui/card';
@@ -15,6 +16,7 @@ import { toLocalDate } from '@/domain/dates';
 import { MEALS, mealForTime } from '@/domain/meals';
 import type { Meal } from '@/domain/types';
 import { useDayLog } from '@/state/use-day-log';
+import { usePendingScans } from '@/state/use-pending-scans';
 import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
@@ -31,6 +33,7 @@ export default function DashboardScreen() {
   const { colors } = useTheme();
   const [date, setDate] = useState(toLocalDate);
   const data = useDayLog(date);
+  const pending = usePendingScans();
 
   const openAdd = (method: AddMethod, meal?: Meal) => {
     const params = { date, meal: meal ?? (date === toLocalDate() ? mealForTime(new Date()) : 'snack') };
@@ -52,6 +55,22 @@ export default function DashboardScreen() {
         </Animated.View>
 
         <DaySwitcher date={date} onChange={setDate} />
+
+        <PendingScansCard
+          scans={pending.scans}
+          onDiscard={(scan) => pending.discard(scan.id)}
+          onOpen={(scan) =>
+            scan.status === 'resolved' && scan.foodId != null
+              ? router.push({
+                  pathname: '/add/portion',
+                  params: { foodId: String(scan.foodId), scanId: String(scan.id), date: scan.date, meal: scan.meal },
+                })
+              : router.push({
+                  pathname: '/add/manual',
+                  params: { barcode: scan.barcode, scanId: String(scan.id), date: scan.date, meal: scan.meal },
+                })
+          }
+        />
 
         {plan ? (
           <>
