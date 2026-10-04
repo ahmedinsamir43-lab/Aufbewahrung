@@ -72,15 +72,15 @@ Diese Anleitung setzt **keine Programmierkenntnisse** voraus. Sie brauchen weder
 
 ### B3. Den fertigen Code holen (von GitHub)
 
-1. Auf **https://github.com** anmelden und das Repository **`ahmedinsamir43-lab/Aufbewahrung`** öffnen.
-2. Oben links über der Dateiliste auf die **Branch-Auswahl** klicken (Knopf mit Verzweigungs-Symbol und Branch-Namen).
-3. Den Branch **`claude/nutrition-tracker-react-native-f5itpb`** wählen. Sobald die Änderungen in `main` übernommen sind, geht auch `main`.
-4. Nacheinander die Ordner **`backend` → `recognition-proxy` → `dist`** öffnen.
-5. Die Datei **`worker.js`** anklicken.
-6. Oben rechts über dem Code auf das Symbol **„Copy raw file“** klicken (zwei überlappende Rechtecke).
+1. Bei **https://github.com** anmelden. Das Repository ist privat, deshalb ist die Anmeldung nötig.
+2. Diesen Link öffnen:
+   **https://github.com/ahmedinsamir43-lab/Aufbewahrung/blob/claude/nutrition-tracker-react-native-f5itpb/backend/recognition-proxy/dist/worker.js**
+3. Oben rechts über dem Code auf das Symbol **„Copy raw file“** klicken (zwei überlappende Rechtecke).
    - *Alternative:* auf **„Raw“** klicken, dann **Strg+A** (alles markieren) und **Strg+C** (kopieren).
 
-Der Code (ca. 8 KB) ist jetzt in der Zwischenablage.
+Der Code (ca. 8 KB, rund 200 Zeilen) ist jetzt in der Zwischenablage.
+
+> Funktioniert der Link nicht, gehen Sie so vor: Repository **`ahmedinsamir43-lab/Aufbewahrung`** öffnen, mit der Branch-Auswahl oben links **`claude/nutrition-tracker-react-native-f5itpb`** wählen (sobald die Änderungen in `main` übernommen sind, auch `main`) und dann die Ordner **`backend` → `recognition-proxy` → `dist` → `worker.js`** öffnen.
 
 ### B4. Code im Worker einfügen
 
