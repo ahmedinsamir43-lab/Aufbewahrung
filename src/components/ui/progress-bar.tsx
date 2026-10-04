@@ -6,9 +6,17 @@ import { radius } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
 /** Animierter Fortschrittsbalken (0–1). */
-export function ProgressBar({ progress }: { progress: number }) {
+export function ProgressBar({
+  progress,
+  color,
+  height = 6,
+}: {
+  progress: number;
+  color?: string;
+  height?: number;
+}) {
   const { colors } = useTheme();
-  const value = useSharedValue(progress);
+  const value = useSharedValue(0);
 
   useEffect(() => {
     value.set(withSpring(Math.min(1, Math.max(0, progress)), { damping: 20, stiffness: 140 }));
@@ -20,13 +28,13 @@ export function ProgressBar({ progress }: { progress: number }) {
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
-      style={[styles.track, { backgroundColor: colors.ringTrack }]}>
-      <Animated.View style={[styles.fill, { backgroundColor: colors.accent }, fillStyle]} />
+      style={[styles.track, { height, backgroundColor: colors.ringTrack }]}>
+      <Animated.View style={[styles.fill, { backgroundColor: color ?? colors.accent }, fillStyle]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  track: { height: 6, borderRadius: radius.pill, overflow: 'hidden' },
+  track: { borderRadius: radius.pill, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: radius.pill },
 });

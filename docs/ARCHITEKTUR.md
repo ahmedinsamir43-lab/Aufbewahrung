@@ -29,16 +29,19 @@ src/
       index.tsx                 Dashboard (Ringe, Kalorien, Mahlzeiten)
       history.tsx               Verlauf
       settings.tsx              Profil bearbeiten → Plan neu berechnen
-    add/
-      scan.tsx                  Barcode-Scanner (Modal)
-      photo.tsx                 Foto aufnehmen/auswählen → Vorschlagsliste
-      search.tsx                Textsuche (lokal + Open Food Facts)
-      portion.tsx               Portionsgröße anpassen, Live-Umrechnung, speichern
-      manual.tsx                Manuelle Eingabe (z. B. Barcode nicht gefunden)
+    add/                        Modal-Stack für die Erfassung
+      search.tsx                Textsuche (lokal; Open Food Facts ab Schritt 4)
+      manual.tsx                Manuelle Eingabe (pro 100 g, mit Plausibilitätsprüfung)
+      portion.tsx               Portion/Mahlzeit wählen, Live-Umrechnung; auch Bearbeiten/Löschen
+      scan.tsx                  Barcode-Scanner (Schritt 4)
+      photo.tsx                 Foto aufnehmen → Vorschlagsliste (Schritt 5)
   domain/                       Reine Logik, vollständig unit-getestet
     types.ts                    Domänentypen (vorhanden)
     nutrition-plan.ts           BMR, TDEE, Kalorienziel, Makros, Dauer bis Ziel
-    portion.ts                  Umrechnung pro 100 g → Portion
+    portion.ts                  Umrechnung pro 100 g → Portion, Tagessummen, Kalorienbilanz
+    meals.ts                    Mahlzeiten, Vorauswahl nach Uhrzeit
+    food-validation.ts          Validierung manueller Lebensmittel (Atwater-Plausibilität)
+    dates.ts                    Lokale Kalendertage, Tagesbeschriftung
     avoid-match.ts              Abgleich mit gemiedenen Lebensmitteln
     onboarding.ts               Schrittfolge, Überspringlogik, Validierung
     ring.ts                     Füllgrad und Überschreitung der Makro-Ringe
@@ -105,9 +108,24 @@ Zentrale Modellierungsentscheidungen:
 
 **Gestaltung.** Schrift *Plus Jakarta Sans*, Icons *Material Symbols* (über expo-symbols), haptisches Feedback (expo-haptics), Animationen mit Reanimated (Federn, gestaffelte Einblendungen, animierte Ringe). Die Ringgröße passt sich der Bildschirmbreite an (72–112 px).
 
-## 5. Qualitätssicherung
+## 5. Fahrplan (aktualisiert)
 
-- `npm test` – Jest: Formeln, Interviewlogik, Ringzustand, Formatierung, Migrationen und Repositories (gegen echtes SQLite)
+| Schritt | Inhalt | Status |
+|---|---|---|
+| 1 | Projekt, Struktur, Datenmodell | erledigt |
+| 2 | Onboarding, Berechnung, Unit-Tests | erledigt |
+| 3 | Dashboard, Tagesprotokoll, „+"-Button, Portionsauswahl, lokale Suche, manuelle Eingabe | erledigt |
+| 4 | Barcode-Scanner, Open Food Facts (Barcode und Textsuche), Offline-Warteschlange | offen |
+| 5 | Foto-Erkennung über Cloudflare-Worker-Proxy | offen |
+| 6 | Verlauf, Einstellungen, **Gewichtsverlauf** mit Diagramm zum Zielgewicht, Feinschliff | offen |
+| 7 | **Samsung Health über Android Health Connect**: Schritte, Trainings und Aktivitätskalorien lesen, Gewicht synchronisieren | offen |
+| 8 | Installationsanleitung (USB-Debugging / APK über EAS Build) | offen |
+
+**Anmerkung zu Schritt 7.** Samsung Health stellt Daten auf Android über Health Connect bereit; eine direkte Samsung-Schnittstelle ist für Drittanbieter-Apps nicht vorgesehen. Health Connect ist ein natives Modul und erfordert daher einen Development Build bzw. eine APK (nicht Expo Go). Offen und vor Umsetzung zu entscheiden: ob verbrannte Aktivitätskalorien das Tagesziel erhöhen sollen. Da der Aktivitätsfaktor sportliche Aktivität bereits enthält, droht sonst eine Doppelzählung.
+
+## 6. Qualitätssicherung
+
+- `npm test` – Jest: Formeln, Interviewlogik, Portionen, Ringzustand, Abgleich gemiedener Lebensmittel, Formatierung, Migrationen und Repositories (gegen echtes SQLite)
 - `npm run typecheck` – TypeScript strict
 - `npm run lint` – ESLint (expo-Konfiguration, inkl. React-Compiler-Regeln)
 - Web-Vorschau (`npx expo start --web`) für schnelle visuelle Kontrollen; `metro.config.js` aktiviert dafür WebAssembly für expo-sqlite

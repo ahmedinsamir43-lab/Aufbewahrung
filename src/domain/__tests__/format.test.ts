@@ -1,4 +1,5 @@
-import { approxMonths, formatNumber, formatSigned, formatWeeks } from '../format';
+import { parsePortion } from '../portion';
+import { approxMonths, formatInput, formatNumber, formatSigned, formatWeeks } from '../format';
 
 describe('Formatierung', () => {
   it('formatNumber mit Tausenderpunkt und Dezimalkomma', () => {
@@ -22,5 +23,11 @@ describe('Formatierung', () => {
     expect(formatWeeks(17)).toBe('17 Wochen');
     expect(approxMonths(11)).toBeNull();
     expect(approxMonths(17)).toBe('etwa 4 Monate');
+  });
+
+  it('formatInput ist mit parsePortion umkehrbar (auch ab 1.000 g)', () => {
+    expect(formatInput(1000)).toBe('1000');
+    expect(formatInput(72.46)).toBe('72,5');
+    for (const g of [1, 60, 72.5, 1000, 2500]) expect(parsePortion(formatInput(g))).toBe(g);
   });
 });

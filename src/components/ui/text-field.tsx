@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md + spacing.xs,
     gap: spacing.sm,
   },
-  input: { flex: 1, paddingVertical: spacing.sm },
+  input: { flex: 1, minWidth: 0, paddingVertical: spacing.sm },
   // Browser-Fokusrahmen nur in der Web-Vorschau ausblenden; der Rahmen der Box zeigt den Fokus.
   noOutline: { outlineStyle: 'none' } as object,
   inputLarge: { ...typography.display, fontSize: 32, lineHeight: 40 },

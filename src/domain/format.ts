@@ -28,3 +28,8 @@ export function approxMonths(weeks: number): string | null {
   if (weeks < 12) return null;
   return `etwa ${Math.round((weeks * 7) / 30.44)} Monate`;
 }
+
+/** Zahl für Eingabefelder: ohne Tausenderpunkt, höchstens eine Nachkommastelle, Dezimalkomma. */
+export function formatInput(value: number): string {
+  return String(Math.round(value * 10) / 10).replace('.', ',');
+}

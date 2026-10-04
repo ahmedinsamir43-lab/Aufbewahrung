@@ -52,6 +52,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="add" options={{ presentation: 'modal' }} />
         </Stack>
       </SQLiteProvider>
     </ThemeProvider>
