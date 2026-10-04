@@ -2,3 +2,6 @@ node_modules/
 .wrangler/
 .dev.vars
 .bundle/
+
+# Gebündelter Worker für den Cloudflare-Browser-Editor wird bewusst eingecheckt
+!dist/
