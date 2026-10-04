@@ -3,20 +3,8 @@
  *
  * Führt die Migrationen gegen eine echte SQLite-In-Memory-Datenbank (`node:sqlite`) aus.
  */
-import { DatabaseSync } from 'node:sqlite';
-
-import { migrate, SCHEMA_VERSION, type MigratableDatabase } from '../schema';
-
-function createTestDb(): MigratableDatabase & { raw: DatabaseSync } {
-  const raw = new DatabaseSync(':memory:');
-  return {
-    raw,
-    execAsync: async (source) => {
-      raw.exec(source);
-    },
-    getFirstAsync: async <T,>(source: string) => (raw.prepare(source).get() as T) ?? null,
-  };
-}
+import { migrate, SCHEMA_VERSION } from '../schema';
+import { createNodeDb as createTestDb } from '../testing/node-sqlite';
 
 const NOW = '2026-10-04T12:00:00.000Z';
 

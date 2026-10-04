@@ -20,13 +20,12 @@
 src/
   app/                          Routen (expo-router) – nur Screens, keine Logik
     _layout.tsx                 Root: Theme, SQLiteProvider, Stack
-    index.tsx                   Weiche: Profil vorhanden → Dashboard, sonst Onboarding
     onboarding/
-      _layout.tsx               Fortschrittsbalken + Zustand des Interviews
-      [step].tsx                Eine Frage pro Screen (1–11)
+      _layout.tsx               Zustand des Interviews (Provider, Entwurf in SQLite)
+      index.tsx                 Eine Frage pro Ansicht (1–11), Fortschrittsbalken
       result.tsx                Ergebnis-Screen mit Plan und Ring-Vorschau
     (tabs)/
-      _layout.tsx               Tab-Leiste
+      _layout.tsx               Tab-Leiste; ohne Profil → Weiterleitung zum Onboarding
       index.tsx                 Dashboard (Ringe, Kalorien, Mahlzeiten)
       history.tsx               Verlauf
       settings.tsx              Profil bearbeiten → Plan neu berechnen
@@ -41,7 +40,9 @@ src/
     nutrition-plan.ts           BMR, TDEE, Kalorienziel, Makros, Dauer bis Ziel
     portion.ts                  Umrechnung pro 100 g → Portion
     avoid-match.ts              Abgleich mit gemiedenen Lebensmitteln
-    onboarding-steps.ts         Fragenkatalog, Überspringlogik, Validierung
+    onboarding.ts               Schrittfolge, Überspringlogik, Validierung
+    ring.ts                     Füllgrad und Überschreitung der Makro-Ringe
+    format.ts                   Zahlenformat (de-DE)
   db/
     schema.ts                   Migrationen (vorhanden, getestet)
     client.ts                   Initialisierung (vorhanden)
@@ -86,8 +87,27 @@ Zentrale Modellierungsentscheidungen:
 5. **Foto-Ergebnisse** werden nie automatisch gespeichert. Erst nach Bestätigung im Vorschlags-Screen entsteht ein `log_entry` mit `source = 'photo'`, `confidence` und ggf. `is_estimate = 1`.
 6. **Integrität in der Datenbank.** CHECK-Constraints für Enumerationen und Wertebereiche, eindeutige Barcodes, Indizes auf Datum/Mahlzeit.
 
-## 4. Qualitätssicherung
+## 4. Festgelegte fachliche Entscheidungen (Schritt 2)
 
-- `npm test` – Jest (Migrationen gegen echtes SQLite, ab Schritt 2 Formeln)
+| Thema | Entscheidung |
+|---|---|
+| Frage 11 | Zwei Felder: „Lebensmittel meiden" (Schlagwörter, kommagetrennt) und „Gesundheitliche Notiz". Nur die Notiz löst den Hinweis zur ärztlichen Abklärung aus. |
+| Eiweiß bei BMI > 30 | Referenz = Zielgewicht; bei „halten" (kein Zielgewicht) das Gewicht bei BMI 25. |
+| Keto | Kohlenhydrate fest 30 g/Tag. |
+| Rundung | BMR und TDEE werden gerundet, bevor Kalorienziel und Makros berechnet werden; Prozentanteile aus den gerundeten Grammwerten. |
+| Untergrenze | `max(BMR, 1.500 kcal ♂ / 1.200 kcal ♀)`; der Hinweis nennt die greifende Grenze. |
+| Makro-Konflikt | Übersteigen Eiweiß und fester Anteil das Kalorienziel, wird der Rest auf 0 g begrenzt und ein Hinweis angezeigt. |
+| Plausibilität | Alter 18–100 (Mifflin-St Jeor ist für Erwachsene validiert), Größe 120–230 cm, Gewicht 35–300 kg; Zielgewicht beim Abnehmen nicht unter BMI 18,5 (WHO-Grenze Untergewicht). |
+| Dauer bis Ziel | `|Δkg| × 7.700 / |Tagesbilanz|`, in Wochen gerundet (mindestens 1); als Schätzung gekennzeichnet. |
+| Foto-Proxy (Schritt 5) | Cloudflare Worker, API-Key als Secret, Absicherung über App-Token. |
+
+**Persistenz.** Ein unterbrochenes Onboarding wird als Entwurf in `app_setting` gesichert und beim nächsten Start an derselben Frage fortgesetzt. Profil und Plan werden in einer Transaktion gespeichert; danach wird der Entwurf entfernt.
+
+**Gestaltung.** Schrift *Plus Jakarta Sans*, Icons *Material Symbols* (über expo-symbols), haptisches Feedback (expo-haptics), Animationen mit Reanimated (Federn, gestaffelte Einblendungen, animierte Ringe). Die Ringgröße passt sich der Bildschirmbreite an (72–112 px).
+
+## 5. Qualitätssicherung
+
+- `npm test` – Jest: Formeln, Interviewlogik, Ringzustand, Formatierung, Migrationen und Repositories (gegen echtes SQLite)
 - `npm run typecheck` – TypeScript strict
-- `npm run lint` – ESLint (expo-Konfiguration)
+- `npm run lint` – ESLint (expo-Konfiguration, inkl. React-Compiler-Regeln)
+- Web-Vorschau (`npx expo start --web`) für schnelle visuelle Kontrollen; `metro.config.js` aktiviert dafür WebAssembly für expo-sqlite
